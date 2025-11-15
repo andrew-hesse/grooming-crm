@@ -1,0 +1,26 @@
+{
+  "name": "TATYCAN - Peluquería Canina",
+  "short_name": "TATYCAN",
+  "icons": [
+    {
+      "src": "/logo.avif",
+      "sizes": "512x512",
+      "type": "image/avif",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#FFF6ED",
+  "background_color": "#FFF6ED",
+  "display": "standalone",
+  "start_url": "/",
+  "description": "Servicios profesionales de peluquería canina en Galapagar, Madrid",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "es"
+} 

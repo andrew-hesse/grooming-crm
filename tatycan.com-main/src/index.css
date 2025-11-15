@@ -1,0 +1,142 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap")
+layer(base);
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #fff6ed;
+  --color-secondary: #ffd8cc;
+  --color-accent: #d67579;
+  --color-accent-light: #e68b8f;
+  --color-neutral: #e4d4c8;
+  --color-neutral-light: #f0e6dc;
+  --color-dark: #2c2c2c;
+  --color-dark-light: #4a4a4a;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  --font-sans: Poppins, sans-serif;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility btn {
+  padding-inline: 1.5rem;
+  padding-block: 0.75rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+@utility btn-primary {
+  background-color: var(--color-accent);
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(214, 117, 121, 0.3);
+  transform: translateY(0);
+  &:hover {
+    background-color: var(--color-dark);
+    box-shadow: 0 6px 20px 0 rgba(44, 44, 44, 0.4);
+    transform: translateY(-2px);
+  }
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px 0 rgba(214, 117, 121, 0.3);
+  }
+}
+
+@utility container-custom {
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (min-width: 640px) {
+    padding-inline: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility section {
+  padding-block: 4rem;
+}
+
+@layer utilities {
+  /* Smooth scrolling behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #d4a574;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b8935f;
+  }
+
+  /* Shimmer animation for skeleton loaders */
+  .shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-primary);
+    color: var(--color-dark);
+    font-weight: 500;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+  }
+
+  p {
+    font-weight: 500;
+  }
+}
+
