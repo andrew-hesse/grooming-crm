@@ -38,6 +38,12 @@ export default function AdminLayout({
                 Appointments
               </Button>
             </Link>
+            <Link href="/admin/breeds">
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Users className="h-5 w-5" />
+                Breeds
+              </Button>
+            </Link>
             <Link href="/admin/clients">
               <Button variant="ghost" className="w-full justify-start gap-2">
                 <Users className="h-5 w-5" />

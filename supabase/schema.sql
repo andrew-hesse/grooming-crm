@@ -34,13 +34,30 @@ CREATE TABLE profiles (
 );
 
 /**
+ * Breeds table - Dog/cat breeds with pricing
+ * Allows admin to manage breeds and their associated grooming prices
+ */
+CREATE TABLE breeds (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
+  description TEXT,
+  base_price DECIMAL(10,2) NOT NULL, -- Price in euros (€)
+  size pet_size NOT NULL,
+  grooming_notes TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+/**
  * Pets table - Pet information for clients
  */
 CREATE TABLE pets (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   owner_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  breed TEXT NOT NULL,
+  breed_id UUID REFERENCES breeds(id) ON DELETE SET NULL,
+  custom_breed TEXT, -- For breeds not in the system
   size pet_size NOT NULL,
   age INTEGER,
   weight DECIMAL(5,2), -- in kg
@@ -48,7 +65,12 @@ CREATE TABLE pets (
   medical_conditions TEXT,
   photo_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- Either breed_id or custom_breed must be set
+  CONSTRAINT breed_specification CHECK (
+    (breed_id IS NOT NULL) OR (custom_breed IS NOT NULL)
+  )
 );
 
 /**
@@ -92,7 +114,7 @@ CREATE TABLE appointments (
 CREATE TABLE payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
-  amount DECIMAL(10,2) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL, -- Amount in euros (€)
   status payment_status NOT NULL DEFAULT 'pending',
   payment_method TEXT,
   transaction_id TEXT UNIQUE,
@@ -101,11 +123,31 @@ CREATE TABLE payments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+/**
+ * Appointment Photos table - Photos uploaded during grooming visits
+ * Stored in Backblaze S3
+ */
+CREATE TABLE appointment_photos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+  photo_url TEXT NOT NULL, -- Backblaze S3 URL
+  photo_key TEXT NOT NULL, -- S3 object key
+  thumbnail_url TEXT, -- Optional thumbnail
+  caption TEXT,
+  uploaded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  file_size INTEGER, -- Size in bytes
+  mime_type TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
 
+CREATE INDEX idx_breeds_name ON breeds(name);
+CREATE INDEX idx_breeds_is_active ON breeds(is_active);
 CREATE INDEX idx_pets_owner_id ON pets(owner_id);
+CREATE INDEX idx_pets_breed_id ON pets(breed_id);
 CREATE INDEX idx_appointments_pet_id ON appointments(pet_id);
 CREATE INDEX idx_appointments_client_id ON appointments(client_id);
 CREATE INDEX idx_appointments_staff_id ON appointments(staff_id);
@@ -114,6 +156,8 @@ CREATE INDEX idx_appointments_scheduled_date ON appointments(scheduled_date);
 CREATE INDEX idx_appointments_status ON appointments(status);
 CREATE INDEX idx_payments_appointment_id ON payments(appointment_id);
 CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_appointment_photos_appointment_id ON appointment_photos(appointment_id);
+CREATE INDEX idx_appointment_photos_uploaded_by ON appointment_photos(uploaded_by);
 
 -- =====================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -121,10 +165,12 @@ CREATE INDEX idx_payments_status ON payments(status);
 
 -- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE breeds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointment_photos ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -139,6 +185,19 @@ CREATE POLICY "Admin and staff can view all profiles" ON profiles
       SELECT 1 FROM profiles
       WHERE id = auth.uid()
       AND role IN ('admin', 'staff')
+    )
+  );
+
+-- Breeds policies
+CREATE POLICY "Anyone can view active breeds" ON breeds
+  FOR SELECT USING (is_active = true);
+
+CREATE POLICY "Admin can manage breeds" ON breeds
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role = 'admin'
     )
   );
 
@@ -236,6 +295,43 @@ CREATE POLICY "Admin and staff can manage payments" ON payments
     )
   );
 
+-- Appointment Photos policies
+CREATE POLICY "Clients can view photos of their appointments" ON appointment_photos
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM appointments
+      WHERE appointments.id = appointment_photos.appointment_id
+      AND appointments.client_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Staff and admin can view all photos" ON appointment_photos
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'staff')
+    )
+  );
+
+CREATE POLICY "Staff and admin can upload photos" ON appointment_photos
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'staff')
+    )
+  );
+
+CREATE POLICY "Staff and admin can delete photos" ON appointment_photos
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'staff')
+    )
+  );
+
 -- =====================================================
 -- FUNCTIONS
 -- =====================================================
@@ -253,6 +349,9 @@ $$ LANGUAGE plpgsql;
 
 -- Apply updated_at trigger to all tables
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_breeds_updated_at BEFORE UPDATE ON breeds
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_pets_updated_at BEFORE UPDATE ON pets
@@ -288,7 +387,7 @@ CREATE TRIGGER on_auth_user_created
 -- SEED DATA (Optional)
 -- =====================================================
 
--- Insert default services
+-- Insert default services (prices in euros €)
 INSERT INTO services (name, description, base_price, duration_minutes) VALUES
   ('Basic Grooming', 'Bath, brush, nail trim, and ear cleaning', 45.00, 60),
   ('Full Grooming', 'Complete grooming package including haircut', 75.00, 90),
@@ -297,9 +396,47 @@ INSERT INTO services (name, description, base_price, duration_minutes) VALUES
   ('Teeth Cleaning', 'Professional dental cleaning', 50.00, 30),
   ('De-shedding Treatment', 'Special treatment for heavy shedders', 65.00, 75);
 
+-- Insert common dog breeds with prices in euros (€)
+INSERT INTO breeds (name, description, base_price, size, grooming_notes) VALUES
+  -- Small breeds
+  ('Chihuahua', 'Small toy breed with short or long coat', 35.00, 'small', 'Minimal grooming required for short coat'),
+  ('Yorkshire Terrier', 'Small terrier with long silky coat', 45.00, 'small', 'Requires regular brushing and trimming'),
+  ('Pomeranian', 'Small fluffy breed with thick double coat', 50.00, 'small', 'Heavy shedding, needs regular brushing'),
+  ('Maltese', 'Small breed with long white coat', 45.00, 'small', 'Coat requires daily brushing'),
+  ('Shih Tzu', 'Small companion breed with long coat', 50.00, 'small', 'High-maintenance coat'),
+
+  -- Medium breeds
+  ('Beagle', 'Medium hunting breed with short coat', 50.00, 'medium', 'Easy to groom, moderate shedding'),
+  ('Cocker Spaniel', 'Medium breed with long silky coat', 65.00, 'medium', 'Requires regular grooming'),
+  ('French Bulldog', 'Medium compact breed with short coat', 45.00, 'medium', 'Easy grooming, facial folds need attention'),
+  ('Border Collie', 'Medium herding breed with medium coat', 60.00, 'medium', 'Regular brushing needed'),
+  ('Bulldog', 'Medium breed with short coat and wrinkles', 50.00, 'medium', 'Special attention to skin folds'),
+
+  -- Large breeds
+  ('Labrador Retriever', 'Large sporting breed with short coat', 70.00, 'large', 'Heavy shedding, water-resistant coat'),
+  ('Golden Retriever', 'Large breed with long golden coat', 80.00, 'large', 'Requires regular brushing'),
+  ('German Shepherd', 'Large working breed with medium coat', 75.00, 'large', 'Heavy seasonal shedding'),
+  ('Boxer', 'Large breed with short coat', 65.00, 'large', 'Minimal grooming required'),
+  ('Rottweiler', 'Large working breed with short coat', 70.00, 'large', 'Easy to groom'),
+
+  -- Extra Large breeds
+  ('Great Dane', 'Giant breed with short coat', 90.00, 'extra_large', 'Size requires special handling'),
+  ('Saint Bernard', 'Giant breed with thick coat', 110.00, 'extra_large', 'Heavy shedding, requires regular grooming'),
+  ('Newfoundland', 'Giant breed with thick water-resistant coat', 120.00, 'extra_large', 'High-maintenance coat'),
+  ('Bernese Mountain Dog', 'Giant breed with long tri-color coat', 115.00, 'extra_large', 'Heavy shedding'),
+
+  -- Popular Poodle mixes
+  ('Poodle (Toy)', 'Small poodle with curly hypoallergenic coat', 55.00, 'small', 'Requires regular professional grooming'),
+  ('Poodle (Standard)', 'Large poodle with curly coat', 85.00, 'large', 'High-maintenance coat'),
+  ('Goldendoodle', 'Golden Retriever-Poodle mix', 90.00, 'large', 'Wavy to curly coat needs regular grooming'),
+  ('Labradoodle', 'Labrador-Poodle mix', 90.00, 'large', 'Low-shedding coat requires grooming'),
+  ('Cockapoo', 'Cocker Spaniel-Poodle mix', 60.00, 'medium', 'Curly coat needs regular maintenance');
+
 -- Comments for documentation
 COMMENT ON TABLE profiles IS 'User profiles with extended information beyond auth.users';
+COMMENT ON TABLE breeds IS 'Dog and cat breeds with pricing in euros (€)';
 COMMENT ON TABLE pets IS 'Pet information managed by clients';
-COMMENT ON TABLE services IS 'Available grooming services with pricing';
+COMMENT ON TABLE services IS 'Available grooming services with pricing in euros (€)';
 COMMENT ON TABLE appointments IS 'Appointment bookings linking pets, clients, and services';
-COMMENT ON TABLE payments IS 'Payment records for completed appointments';
+COMMENT ON TABLE payments IS 'Payment records for completed appointments in euros (€)';
+COMMENT ON TABLE appointment_photos IS 'Photos uploaded during grooming visits, stored in Backblaze S3';

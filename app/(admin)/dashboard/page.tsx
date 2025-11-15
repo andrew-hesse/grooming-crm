@@ -10,7 +10,7 @@ export default function AdminDashboardPage() {
   // TODO: Fetch real data from Supabase
   const stats = {
     todayAppointments: 8,
-    weeklyRevenue: 1250,
+    weeklyRevenue: 1250, // in euros (€)
     activeClients: 45,
     completionRate: 94,
   };
@@ -45,7 +45,7 @@ export default function AdminDashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.weeklyRevenue}</div>
+            <div className="text-2xl font-bold">€{stats.weeklyRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-accent font-medium">+12%</span> from last week
             </p>

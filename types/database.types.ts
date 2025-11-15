@@ -44,6 +44,41 @@ export type PetSize = 'small' | 'medium' | 'large' | 'extra_large';
 export interface Database {
   public: {
     Tables: {
+      breeds: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          base_price: number; // in euros (€)
+          size: PetSize;
+          grooming_notes: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          base_price: number;
+          size: PetSize;
+          grooming_notes?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          base_price?: number;
+          size?: PetSize;
+          grooming_notes?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       profiles: {
         Row: {
           id: string;
@@ -81,7 +116,8 @@ export interface Database {
           id: string;
           owner_id: string;
           name: string;
-          breed: string;
+          breed_id: string | null;
+          custom_breed: string | null;
           size: PetSize;
           age: number | null;
           weight: number | null;
@@ -95,7 +131,8 @@ export interface Database {
           id?: string;
           owner_id: string;
           name: string;
-          breed: string;
+          breed_id?: string | null;
+          custom_breed?: string | null;
           size: PetSize;
           age?: number | null;
           weight?: number | null;
@@ -109,7 +146,8 @@ export interface Database {
           id?: string;
           owner_id?: string;
           name?: string;
-          breed?: string;
+          breed_id?: string | null;
+          custom_breed?: string | null;
           size?: PetSize;
           age?: number | null;
           weight?: number | null;
@@ -125,7 +163,7 @@ export interface Database {
           id: string;
           name: string;
           description: string | null;
-          base_price: number;
+          base_price: number; // in euros (€)
           duration_minutes: number;
           is_active: boolean;
           created_at: string;
@@ -200,7 +238,7 @@ export interface Database {
         Row: {
           id: string;
           appointment_id: string;
-          amount: number;
+          amount: number; // in euros (€)
           status: PaymentStatus;
           payment_method: string | null;
           transaction_id: string | null;
@@ -229,6 +267,44 @@ export interface Database {
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      appointment_photos: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          photo_url: string;
+          photo_key: string;
+          thumbnail_url: string | null;
+          caption: string | null;
+          uploaded_by: string | null;
+          file_size: number | null;
+          mime_type: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          photo_url: string;
+          photo_key: string;
+          thumbnail_url?: string | null;
+          caption?: string | null;
+          uploaded_by?: string | null;
+          file_size?: number | null;
+          mime_type?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          appointment_id?: string;
+          photo_url?: string;
+          photo_key?: string;
+          thumbnail_url?: string | null;
+          caption?: string | null;
+          uploaded_by?: string | null;
+          file_size?: number | null;
+          mime_type?: string | null;
+          created_at?: string;
         };
       };
     };

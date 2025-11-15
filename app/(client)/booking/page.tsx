@@ -197,7 +197,7 @@ export default function BookingPage() {
                         <p className="font-medium">{service.name}</p>
                         <p className="text-sm text-muted-foreground">{service.duration} minutes</p>
                       </div>
-                      <p className="text-lg font-semibold">${service.price}</p>
+                      <p className="text-lg font-semibold">€{service.price.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
